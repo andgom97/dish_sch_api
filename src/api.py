@@ -8,11 +8,17 @@ app.config["DEBUG"] = True
 
 dishes = read_dishes()
 
-def dish_exist(name):
+def get_dish(name):
     for dish in dishes:
-        if name==dish['name']:
-            return True
-    return False
+        if dish['name']==name:
+            return dish
+    return None
+
+def update_dish(old_dish,new_dish):
+    keys = old_dish.keys()
+    print(keys)
+    for key in keys:
+        old_dish[key]=new_dish[key]
 
 @app.route('/api/v1', methods=['GET'])
 def home():
@@ -25,14 +31,19 @@ def home():
 def page_not_found(e):
     return "<h1>404</h1><p>The resource could not be found.</p>", 404
 
-# Error function
+# Bad request
 @app.errorhandler(400)
 def bad_request(e):
     return "<h1>400</h1><p>Your request is missing parameters.</p>", 400
 
+# Resource already exist
+@app.errorhandler(409)
+def already_exist(e):
+    return "<h1>409</h1><p>The resource already exists.</p>", 409
+
 # Function to filter dishes by name or tag
 @app.route('/api/v1/resources/dishes', methods=['GET'])
-def dish_filter():
+def filter_dish():
     query_parameters = request.args
     
     name = query_parameters.get('name')
@@ -57,48 +68,56 @@ def dish_filter():
 
 # Function to post a new dish
 @app.route('/api/v1/resources/dishes', methods=['POST'])
-def add_dish():
-    if not request.json:
-        return bad_request(400)
-    if not 'name' in request.json:
-        return bad_request(400)
-    if not 'ingredients' in request.json:
-        return bad_request(400)
-    if not 'moment' in request.json:
-        return bad_request(400)
-    if not 'tag' in request.json:
-        return bad_request(400)
-    if not dish_exist(request.json['name']):
+def post_dish():
+    try:
         dish = {
             'name':request.json['name'],
             'moment':request.json['moment'],
             'ingredients':request.json['ingredients'],
             'tag':request.json['tag']
         }
-        dishes.append(dish)
-        write_dishes({'dishes':dishes})
-        return jsonify(dish), 201
-    return "<h1>409</h1><p>The resource already exists.</p>", 409
+        if get_dish(dish['name'])==None:
+            dishes.append(dish)
+            write_dishes({'dishes':dishes})
+            return jsonify(dish), 201
+        return already_exist(409)
+    except TypeError:
+        return bad_request(400)
+    except KeyError:
+        return bad_request(400)
 
 # Function to edit an existing dish
 @app.route('/api/v1/resources/dishes', methods=['PUT'])
-def update_dish():
-    pass
+def put_dish():
+    query_parameters = request.args
+    name = query_parameters.get('name')
+    try:
+        new_dish = {
+            'name':request.json['name'],
+            'moment':request.json['moment'],
+            'ingredients':request.json['ingredients'],
+            'tag':request.json['tag']
+        }
+        old_dish = get_dish(name)
+        update_dish(old_dish,new_dish)
+        write_dishes({"dishes":dishes})
+        return jsonify(new_dish), 202
+    except ValueError:
+        return page_not_found(404)  
+    except TypeError:
+        return bad_request(400)
+    except KeyError:
+        return bad_request(400)
 
 # Function to delete a dish
 @app.route('/api/v1/resources/dishes', methods=['DELETE'])
 def delete_dish():
     query_parameters = request.args
-
     name = query_parameters.get('name')
-
-    if name:
-        for dish in dishes:
-            if name==dish['name']:
-                dishes.remove(dish)
-                write_dishes({"dishes":dishes})
-                return "<h1>202</h1><p>Accepted.</p>", 202
+    try:
+        dish = get_dish(name)
+        dishes.remove(dish)
+        write_dishes({"dishes":dishes})
+        return '<h1>202</h1><p>Accepted.</p>', 202
+    except ValueError:
         return page_not_found(404)
-        
-    if not name:
-        return bad_request(400)
