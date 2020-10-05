@@ -48,23 +48,25 @@ def filter_dish():
     
     name = query_parameters.get('name')
     moment = query_parameters.get('moment')
+    tag = query_parameters.get('tag')
 
-    filter_result=[]
-    
-    if not (name or moment):
-        return jsonify({"dishes":dishes})
+    filter_result= dishes
     
     if name:
-        for dish in dishes:
-            if name in dish['name']:
-                filter_result.append(dish)
-        
+        filter_result = list(filter(lambda dish: dish['name'].startswith(name),filter_result))
     if moment:
-        for dish in dishes:
-            if int(moment)==dish['moment'] or dish['moment']==2:
-                filter_result.append(dish)
-
+        filter_result = list(filter(lambda dish: dish['moment'] == int(moment) or dish['moment'] == 2,filter_result))
+    if tag:
+        filter_result = list(filter(lambda dish: dish['tag'] == int(tag),filter_result))
     return jsonify({"dishes":filter_result})
+
+# Function to filter dishes by name or tag
+@app.route('/api/v1/resources/dishes/<name>', methods=['GET'])
+def get_one_dish(name):
+    dish = get_dish(name)
+    if dish:
+        return jsonify(dish)
+    return page_not_found(404)
 
 # Function to post a new dish
 @app.route('/api/v1/resources/dishes', methods=['POST'])
@@ -87,10 +89,8 @@ def post_dish():
         return bad_request(400)
 
 # Function to edit an existing dish
-@app.route('/api/v1/resources/dishes', methods=['PUT'])
-def put_dish():
-    query_parameters = request.args
-    name = query_parameters.get('name')
+@app.route('/api/v1/resources/dishes/<name>', methods=['PUT'])
+def put_dish(name):
     try:
         new_dish = {
             'name':request.json['name'],
@@ -103,17 +103,17 @@ def put_dish():
         write_dishes({"dishes":dishes})
         return jsonify(new_dish), 202
     except ValueError:
-        return page_not_found(404)  
+        return page_not_found(404)
+    except AttributeError:
+        return page_not_found(404)    
     except TypeError:
         return bad_request(400)
     except KeyError:
         return bad_request(400)
 
 # Function to delete a dish
-@app.route('/api/v1/resources/dishes', methods=['DELETE'])
-def delete_dish():
-    query_parameters = request.args
-    name = query_parameters.get('name')
+@app.route('/api/v1/resources/dishes/<name>', methods=['DELETE'])
+def delete_dish(name):
     try:
         dish = get_dish(name)
         dishes.remove(dish)
