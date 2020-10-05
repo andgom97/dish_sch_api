@@ -8,18 +8,21 @@ app.config["DEBUG"] = True
 
 dishes = read_dishes()
 
+# Function that returns the dish from its name
 def get_dish(name):
     for dish in dishes:
         if dish['name']==name:
             return dish
     return None
 
+# Function that updates a dish
 def update_dish(old_dish,new_dish):
     keys = old_dish.keys()
     print(keys)
     for key in keys:
         old_dish[key]=new_dish[key]
 
+# Home
 @app.route('/api/v1', methods=['GET'])
 def home():
     html ='''<h1>Dish scheduler API 1.0</h1>
@@ -58,7 +61,7 @@ def filter_dish():
         filter_result = list(filter(lambda dish: dish['moment'] == int(moment) or dish['moment'] == 2,filter_result))
     if tag:
         filter_result = list(filter(lambda dish: dish['tag'] == int(tag),filter_result))
-    return jsonify({"dishes":filter_result})
+    return jsonify({"dishes":[dish['name'] for dish in filter_result]})
 
 # Function to filter dishes by name or tag
 @app.route('/api/v1/resources/dishes/<name>', methods=['GET'])
