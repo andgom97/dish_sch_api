@@ -1,12 +1,14 @@
-import flask
-from flask import request, jsonify
-import json
-from file import *
-
-app = flask.Flask(__name__)
-app.config["DEBUG"] = True
+from file import read_dishes, write_dishes
+from auth import *
 
 dishes = read_dishes()
+
+# Home
+@app.route('/api/v1', methods=['GET'])
+def home():
+    html ='''<h1>Dish scheduler API 1.0</h1>
+            <p>Backend API for dish scheduler home application.</p>'''
+    return html
 
 # Function that returns the dish from its name
 def get_dish(name):
@@ -22,30 +24,9 @@ def update_dish(old_dish,new_dish):
     for key in keys:
         old_dish[key]=new_dish[key]
 
-# Home
-@app.route('/api/v1', methods=['GET'])
-def home():
-    html ='''<h1>Dish scheduler API 1.0</h1>
-            <p>Backend API for dish scheduler home application.</p>'''
-    return html
-
-# Page not found
-@app.errorhandler(404)
-def page_not_found(e):
-    return "<h1>404</h1><p>The resource could not be found.</p>", 404
-
-# Bad request
-@app.errorhandler(400)
-def bad_request(e):
-    return "<h1>400</h1><p>Your request is missing parameters.</p>", 400
-
-# Resource already exist
-@app.errorhandler(409)
-def already_exist(e):
-    return "<h1>409</h1><p>The resource already exists.</p>", 409
-
 # Function to filter dishes by name or tag
 @app.route('/api/v1/resources/dishes', methods=['GET'])
+@auth.login_required
 def filter_dish():
     query_parameters = request.args
     
@@ -65,6 +46,7 @@ def filter_dish():
 
 # Function to filter dishes by name or tag
 @app.route('/api/v1/resources/dishes/<name>', methods=['GET'])
+@auth.login_required
 def get_one_dish(name):
     dish = get_dish(name)
     if dish:
@@ -73,6 +55,7 @@ def get_one_dish(name):
 
 # Function to post a new dish
 @app.route('/api/v1/resources/dishes', methods=['POST'])
+@auth.login_required
 def post_dish():
     try:
         dish = {
@@ -83,7 +66,7 @@ def post_dish():
         }
         if get_dish(dish['name'])==None:
             dishes.append(dish)
-            write_dishes({'dishes':dishes})
+            write_dishes(dishes)
             return jsonify(dish), 201
         return already_exist(409)
     except TypeError:
@@ -93,6 +76,7 @@ def post_dish():
 
 # Function to edit an existing dish
 @app.route('/api/v1/resources/dishes/<name>', methods=['PUT'])
+@auth.login_required
 def put_dish(name):
     try:
         new_dish = {
@@ -116,11 +100,12 @@ def put_dish(name):
 
 # Function to delete a dish
 @app.route('/api/v1/resources/dishes/<name>', methods=['DELETE'])
+@auth.login_required
 def delete_dish(name):
     try:
         dish = get_dish(name)
         dishes.remove(dish)
-        write_dishes({"dishes":dishes})
+        write_dishes(dishes)
         return '<h1>202</h1><p>Accepted.</p>', 202
     except ValueError:
         return page_not_found(404)
